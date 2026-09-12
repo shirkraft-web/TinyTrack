@@ -350,6 +350,7 @@
   const GOOGLE_CLIENT_ID = '535246486453-ou7olbffm8dcgpegn28p02rkhljjt7bi.apps.googleusercontent.com';
   const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
   const BACKUP_FILENAME = 'tinytrack-events.json';
+  const GOOGLE_SESSION_KEY = 'tinytrack_google_session';
 
   let events = [];
   let logOpen = false;
@@ -360,6 +361,7 @@
   let tokenClient = null;
   let accessToken = null;
   let driveFileId = null;
+  let tokenExpiresAt = null;
   let syncTimer = null;
 
   function genId() {
@@ -586,6 +588,25 @@
     return !GOOGLE_CLIENT_ID.startsWith('YOUR_');
   }
 
+  function saveGoogleSession() {
+    localStorage.setItem(GOOGLE_SESSION_KEY, JSON.stringify({
+      accessToken, driveFileId, expiresAt: tokenExpiresAt
+    }));
+  }
+
+  function loadGoogleSession() {
+    try {
+      const raw = localStorage.getItem(GOOGLE_SESSION_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function clearGoogleSession() {
+    localStorage.removeItem(GOOGLE_SESSION_KEY);
+  }
+
   function initGoogleAuth() {
     if (!isGoogleConfigured() || !window.google) return;
     tokenClient = google.accounts.oauth2.initTokenClient({
@@ -594,9 +615,11 @@
       callback: async (resp) => {
         if (resp.error) { updateAuthUI('error'); return; }
         accessToken = resp.access_token;
+        tokenExpiresAt = Date.now() + (Number(resp.expires_in || 3600) * 1000);
         updateAuthUI('syncing');
         try {
           await syncFromDriveOnSignIn();
+          saveGoogleSession();
           updateAuthUI('synced');
         } catch (e) {
           console.error(e);
@@ -604,6 +627,25 @@
         }
       }
     });
+
+    // Stay signed in across reloads: reuse a still-valid cached token, or try a
+    // silent (no-popup) renewal if it expired — falls back to the manual button either way.
+    const session = loadGoogleSession();
+    if (!session) return;
+    const stillValid = session.expiresAt && session.expiresAt - Date.now() > 60000;
+    if (stillValid) {
+      accessToken = session.accessToken;
+      driveFileId = session.driveFileId;
+      tokenExpiresAt = session.expiresAt;
+      updateAuthUI('synced');
+      syncFromDriveOnSignIn().then(saveGoogleSession).catch(e => { console.error(e); updateAuthUI('error'); });
+    } else {
+      try {
+        tokenClient.requestAccessToken({ prompt: '' });
+      } catch (e) {
+        clearGoogleSession();
+      }
+    }
   }
 
   function handleAuthClick() {
@@ -621,6 +663,8 @@
     }
     accessToken = null;
     driveFileId = null;
+    tokenExpiresAt = null;
+    clearGoogleSession();
     updateAuthUI('signedout');
   }
 
