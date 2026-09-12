@@ -179,6 +179,15 @@
   }
   .log-toggle:active { transform: translateX(-50%) scale(0.96); }
 
+  .siri-note {
+    margin-top: 20px;
+    max-width: 320px;
+    text-align: center;
+    font-size: 0.75rem;
+    opacity: 0.55;
+    line-height: 1.4;
+  }
+
   .log-panel {
     width: 100%;
     max-width: 340px;
@@ -420,6 +429,10 @@
   <button class="log-toggle" id="btnLog">
     <span>📖</span> <span id="logToggleLabel">History</span>
   </button>
+
+  <div class="siri-note">
+    🎙️ Siri: "Log Pee" · "Log Poop" · "Log Diaper" · "Feeding" (say twice: start, then finish)
+  </div>
 
   <div class="toast" id="toast"></div>
 
