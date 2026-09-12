@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TinyTrack</title>
+<style>
+  :root {
+    --pink: #ffd6e8;
+    --pink-deep: #ff9ec7;
+    --blue: #cfeeff;
+    --blue-deep: #7fd3ff;
+    --mint: #d6fff0;
+    --mint-deep: #7fe6c4;
+    --peach: #ffe6cf;
+    --peach-deep: #ffc98a;
+    --yellow: #fff6cf;
+    --ink: #5b4b56;
+    --bg: #fff8f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: linear-gradient(160deg, var(--bg), var(--pink) 120%);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    color: var(--ink);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px 100px;
+  }
+  h1 {
+    font-size: 1.8rem;
+    margin: 8px 0 4px;
+  }
+  .subtitle {
+    font-size: 0.95rem;
+    opacity: 0.7;
+    margin-bottom: 28px;
+  }
+  .buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+    width: 100%;
+    max-width: 340px;
+  }
+  .track-btn {
+    border: none;
+    border-radius: 999px;
+    padding: 28px 20px;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--ink);
+    cursor: pointer;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    transition: transform 0.15s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .track-btn:active {
+    transform: scale(0.96);
+  }
+  .btn-pee { background: linear-gradient(145deg, var(--blue), var(--blue-deep)); }
+  .btn-poop { background: linear-gradient(145deg, var(--mint), var(--mint-deep)); }
+  .btn-feed { background: linear-gradient(145deg, var(--peach), var(--peach-deep)); }
+  .track-btn .emoji { font-size: 2.4rem; }
+  .emoji { font-size: 1.7rem; }
+
+  @keyframes bounce {
+    0% { transform: scale(1); }
+    30% { transform: scale(1.12); }
+    55% { transform: scale(0.94); }
+    100% { transform: scale(1); }
+  }
+  .bounce { animation: bounce 0.35s ease; }
+
+  .log-toggle {
+    position: fixed;
+    bottom: 22px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--yellow);
+    border: 2px solid #ffe6a3;
+    border-radius: 16px;
+    padding: 12px 26px;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--ink);
+    cursor: pointer;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.1);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .log-toggle:active { transform: translateX(-50%) scale(0.96); }
+
+  .log-panel {
+    width: 100%;
+    max-width: 340px;
+    margin-top: 28px;
+    background: #ffffffcc;
+    border-radius: 20px;
+    padding: 18px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+  }
+  .log-panel h2 {
+    margin: 0 0 14px;
+    font-size: 1.1rem;
+  }
+  .cloud-bar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+  }
+  .pill-btn {
+    flex: 1 1 auto;
+    border: none;
+    border-radius: 999px;
+    padding: 9px 14px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    background: #f6eef1;
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .pill-btn:active { transform: scale(0.97); }
+  .auth-status {
+    font-size: 0.78rem;
+    opacity: 0.65;
+    margin-bottom: 14px;
+  }
+  .day-tabs {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 10px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid #f1e6ea;
+    scrollbar-width: thin;
+  }
+  .day-tab {
+    flex: 0 0 auto;
+    border: none;
+    border-radius: 999px;
+    padding: 8px 16px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    background: #f6eef1;
+    color: var(--ink);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .day-tab.active {
+    background: var(--pink-deep);
+    color: white;
+  }
+  .type-filters {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+  }
+  .type-chip {
+    flex: 0 0 auto;
+    border: none;
+    border-radius: 999px;
+    padding: 8px 14px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    background: #f6eef1;
+    color: var(--ink);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .type-chip.active[data-type="all"] { background: var(--ink); color: white; }
+  .type-chip.active[data-type="pee"] { background: var(--blue-deep); color: white; }
+  .type-chip.active[data-type="poop"] { background: var(--mint-deep); color: white; }
+  .type-chip.active[data-type="feed"] { background: var(--peach-deep); color: white; }
+  .log-list {
+    max-height: 38vh;
+    overflow-y: auto;
+  }
+  .log-empty {
+    opacity: 0.6;
+    font-size: 0.9rem;
+    text-align: center;
+    padding: 12px 0;
+  }
+  .log-item {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 10px 8px;
+    border-bottom: 1px solid #f1e6ea;
+    font-size: 0.95rem;
+  }
+  .log-item:last-child { border-bottom: none; }
+  .log-item .emoji { font-size: 1.3rem; }
+  .log-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .log-time { margin-left: auto; opacity: 0.65; font-size: 0.85rem; }
+  .duration-badge {
+    background: #f6eef1;
+    border-radius: 999px;
+    padding: 2px 8px;
+    font-size: 0.75rem;
+    opacity: 0.75;
+  }
+  .log-note {
+    font-size: 0.85rem;
+    opacity: 0.75;
+    padding-left: 30px;
+    word-break: break-word;
+  }
+  .icon-btn {
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 0.95rem;
+    padding: 2px 4px;
+    opacity: 0.6;
+  }
+  .icon-btn:active { opacity: 1; }
+  .log-item.editing {
+    background: #fdf6f9;
+    border-radius: 12px;
+    gap: 8px;
+  }
+  .edit-field {
+    width: 100%;
+    border: 1px solid #eeddE4;
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    color: var(--ink);
+    background: white;
+  }
+  .edit-actions {
+    display: flex;
+    gap: 8px;
+  }
+  .edit-actions button {
+    flex: 1;
+    border: none;
+    border-radius: 999px;
+    padding: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .save-btn { background: var(--pink-deep); color: white; }
+  .cancel-btn { background: #f1e6ea; color: var(--ink); }
+
+  .toast {
+    position: fixed;
+    top: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-20px);
+    background: var(--pink-deep);
+    color: white;
+    padding: 12px 22px;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.15);
+    opacity: 0;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    pointer-events: none;
+    z-index: 10;
+  }
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+</style>
+</head>
+<body>
+
+  <h1>👶 TinyTrack</h1>
+  <div class="subtitle">Simple, cute diaper &amp; feeding tracker</div>
+
+  <div class="buttons">
+    <button class="track-btn btn-pee" id="btnPee">
+      <span class="emoji">💧</span> Pee
+    </button>
+    <button class="track-btn btn-poop" id="btnPoop">
+      <span class="emoji">💩</span> Poop
+    </button>
+    <button class="track-btn btn-feed" id="btnFeed">
+      <span class="emoji">🍼</span> Feeding
+    </button>
+  </div>
+
+  <div class="log-panel" id="logPanel" hidden>
+    <h2>📖 History</h2>
+    <div class="cloud-bar">
+      <button class="pill-btn" id="btnExportCsv">⬇️ Export CSV</button>
+      <button class="pill-btn" id="btnGoogleAuth">Sign in with Google</button>
+    </div>
+    <div class="auth-status" id="authStatus">Not signed in — local only</div>
+    <div class="type-filters" id="typeFilters"></div>
+    <div class="day-tabs" id="dayTabs"></div>
+    <div class="log-list" id="logList"></div>
+  </div>
+
+  <button class="log-toggle" id="btnLog">
+    <span>📖</span> <span id="logToggleLabel">History</span>
+  </button>
+
+  <div class="toast" id="toast"></div>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script>
+  const STORAGE_KEY = 'tinytrack_events';
+  const TYPE_META = {
+    pee: { emoji: '💧', label: 'Pee' },
+    poop: { emoji: '💩', label: 'Poop' },
+    feed: { emoji: '🍼', label: 'Feeding' }
+  };
+
+  // Fill this in after following SETUP.md — leave as-is to keep the app fully local/offline.
+  const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
+  const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
+  const BACKUP_FILENAME = 'tinytrack-events.json';
+
+  let events = [];
+  let logOpen = false;
+  let selectedDay = null; // 'YYYY-MM-DD'
+  let selectedType = 'all'; // 'all' | 'pee' | 'poop' | 'feed'
+  let editingId = null;
+
+  let tokenClient = null;
+  let accessToken = null;
+  let driveFileId = null;
+  let syncTimer = null;
+
+  function genId() {
+    return crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  }
+
+  function loadEvents() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      // migrate entries saved before id/note/duration existed
+      events = parsed.map(ev => ({
+        id: ev.id ?? genId(),
+        type: ev.type,
+        timestamp: ev.timestamp,
+        note: ev.note ?? '',
+        durationMin: ev.durationMin ?? null
+      }));
+    } catch (e) {
+      events = [];
+    }
+  }
+
+  function saveEvents() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(events));
+  }
+
+  function addEvent(type) {
+    events.push({ id: genId(), type, timestamp: new Date().toISOString(), note: '', durationMin: null });
+    saveEvents();
+  }
+
+  function escapeHtml(str) {
+    return str.replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+
+  function toDatetimeLocalValue(iso) {
+    const d = new Date(iso);
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  function dayKey(date) {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  function dayTabLabel(key) {
+    const today = dayKey(new Date());
+    const yesterday = dayKey(new Date(Date.now() - 86400000));
+    if (key === today) return 'Today';
+    if (key === yesterday) return 'Yesterday';
+    const [y, m, d] = key.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  }
+
+  function formatTime(iso) {
+    return new Date(iso).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function renderLog() {
+    const typeFilters = document.getElementById('typeFilters');
+    const dayTabs = document.getElementById('dayTabs');
+    const list = document.getElementById('logList');
+
+    if (events.length === 0) {
+      typeFilters.innerHTML = '';
+      dayTabs.innerHTML = '';
+      list.innerHTML = '<div class="log-empty">No entries yet 🍼</div>';
+      return;
+    }
+
+    const filterOptions = [{ type: 'all', emoji: '📖', label: 'All' },
+      ...Object.entries(TYPE_META).map(([type, meta]) => ({ type, ...meta }))];
+
+    typeFilters.innerHTML = filterOptions.map(opt => {
+      const active = opt.type === selectedType ? 'active' : '';
+      return `<button class="type-chip ${active}" data-type="${opt.type}">${opt.emoji} ${opt.label}</button>`;
+    }).join('');
+
+    typeFilters.querySelectorAll('.type-chip').forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectedType = btn.dataset.type;
+        selectedDay = null; // re-pick the newest day for this filter
+        renderLog();
+      });
+    });
+
+    const filteredEvents = selectedType === 'all'
+      ? events
+      : events.filter(ev => ev.type === selectedType);
+
+    if (filteredEvents.length === 0) {
+      dayTabs.innerHTML = '';
+      const label = TYPE_META[selectedType] ? TYPE_META[selectedType].label.toLowerCase() : '';
+      list.innerHTML = `<div class="log-empty">No ${label} entries yet</div>`;
+      return;
+    }
+
+    const days = [...new Set(filteredEvents.map(ev => dayKey(new Date(ev.timestamp))))]
+      .sort((a, b) => b.localeCompare(a));
+
+    if (!selectedDay || !days.includes(selectedDay)) {
+      selectedDay = days[0];
+    }
+
+    dayTabs.innerHTML = days.map(key => {
+      const active = key === selectedDay ? 'active' : '';
+      return `<button class="day-tab ${active}" data-day="${key}">${dayTabLabel(key)}</button>`;
+    }).join('');
+
+    dayTabs.querySelectorAll('.day-tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectedDay = btn.dataset.day;
+        renderLog();
+      });
+    });
+
+    const dayEvents = filteredEvents
+      .filter(ev => dayKey(new Date(ev.timestamp)) === selectedDay)
+      .sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    list.innerHTML = dayEvents.map(ev => renderLogItem(ev)).join('');
+
+    list.querySelectorAll('.edit-btn').forEach(btn => {
+      btn.addEventListener('click', () => { editingId = btn.dataset.id; renderLog(); });
+    });
+    list.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (!confirm('Delete this entry?')) return;
+        events = events.filter(e => e.id !== btn.dataset.id);
+        saveEvents();
+        scheduleSync();
+        renderLog();
+      });
+    });
+    list.querySelectorAll('.cancel-btn').forEach(btn => {
+      btn.addEventListener('click', () => { editingId = null; renderLog(); });
+    });
+    list.querySelectorAll('.save-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const item = btn.closest('.log-item');
+        const id = btn.dataset.id;
+        const ev = events.find(e => e.id === id);
+        if (!ev) return;
+        const timeVal = item.querySelector('.edit-time').value;
+        const noteVal = item.querySelector('.edit-note').value.trim();
+        const durationVal = item.querySelector('.edit-duration').value;
+        if (timeVal) ev.timestamp = new Date(timeVal).toISOString();
+        ev.note = noteVal;
+        ev.durationMin = durationVal ? Number(durationVal) : null;
+        saveEvents();
+        scheduleSync();
+        editingId = null;
+        renderLog();
+      });
+    });
+  }
+
+  function renderLogItem(ev) {
+    const meta = TYPE_META[ev.type];
+    if (ev.id === editingId) {
+      return `
+        <div class="log-item editing" data-id="${ev.id}">
+          <div class="log-row"><span class="emoji">${meta.emoji}</span><span>${meta.label}</span></div>
+          <input type="datetime-local" class="edit-field edit-time" value="${toDatetimeLocalValue(ev.timestamp)}">
+          <input type="text" class="edit-field edit-note" placeholder="Note (optional)" value="${escapeHtml(ev.note || '')}">
+          <input type="number" class="edit-field edit-duration" placeholder="Duration (minutes)" min="0" value="${ev.durationMin ?? ''}">
+          <div class="edit-actions">
+            <button class="save-btn" data-id="${ev.id}">Save</button>
+            <button class="cancel-btn" data-id="${ev.id}">Cancel</button>
+          </div>
+        </div>`;
+    }
+    return `
+      <div class="log-item" data-id="${ev.id}">
+        <div class="log-row">
+          <span class="emoji">${meta.emoji}</span>
+          <span>${meta.label}</span>
+          ${ev.durationMin ? `<span class="duration-badge">${ev.durationMin}m</span>` : ''}
+          <span class="log-time">${formatTime(ev.timestamp)}</span>
+          <button class="icon-btn edit-btn" data-id="${ev.id}" title="Edit">✏️</button>
+          <button class="icon-btn delete-btn" data-id="${ev.id}" title="Delete">🗑️</button>
+        </div>
+        ${ev.note ? `<div class="log-note">${escapeHtml(ev.note)}</div>` : ''}
+      </div>`;
+  }
+
+  function toCsvValue(v) {
+    const s = String(v ?? '');
+    return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  }
+
+  function exportCsv() {
+    const header = ['id', 'type', 'label', 'date', 'time', 'note', 'durationMin'];
+    const rows = [...events]
+      .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+      .map(ev => [
+        ev.id, ev.type, TYPE_META[ev.type].label,
+        dayKey(new Date(ev.timestamp)), formatTime(ev.timestamp),
+        ev.note || '', ev.durationMin ?? ''
+      ]);
+    const csv = [header, ...rows].map(r => r.map(toCsvValue).join(',')).join('\r\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tinytrack-export-${dayKey(new Date())}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  // --- Google Drive backup (appDataFolder) ---
+  // Requires GOOGLE_CLIENT_ID to be set (see SETUP.md). Fully optional: the app
+  // works offline/local-only if this is never configured or the user never signs in.
+
+  function isGoogleConfigured() {
+    return !GOOGLE_CLIENT_ID.startsWith('YOUR_');
+  }
+
+  function initGoogleAuth() {
+    if (!isGoogleConfigured() || !window.google) return;
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: DRIVE_SCOPE,
+      callback: async (resp) => {
+        if (resp.error) { updateAuthUI('error'); return; }
+        accessToken = resp.access_token;
+        updateAuthUI('syncing');
+        try {
+          await syncFromDriveOnSignIn();
+          updateAuthUI('synced');
+        } catch (e) {
+          console.error(e);
+          updateAuthUI('error');
+        }
+      }
+    });
+  }
+
+  function handleAuthClick() {
+    if (accessToken) { signOutGoogle(); return; }
+    if (!tokenClient) {
+      alert("Google sign-in isn't set up yet — see SETUP.md to connect your Google account.");
+      return;
+    }
+    tokenClient.requestAccessToken();
+  }
+
+  function signOutGoogle() {
+    if (accessToken && window.google) {
+      google.accounts.oauth2.revoke(accessToken, () => {});
+    }
+    accessToken = null;
+    driveFileId = null;
+    updateAuthUI('signedout');
+  }
+
+  function updateAuthUI(state) {
+    const btn = document.getElementById('btnGoogleAuth');
+    const status = document.getElementById('authStatus');
+    if (state === 'synced') {
+      btn.textContent = 'Sign out';
+      status.textContent = '☁️ Backed up to Google Drive';
+    } else if (state === 'syncing') {
+      status.textContent = '☁️ Syncing…';
+    } else if (state === 'error') {
+      status.textContent = '⚠️ Sync error — your data is still safe on this device';
+    } else {
+      btn.textContent = 'Sign in with Google';
+      status.textContent = 'Not signed in — local only';
+    }
+  }
+
+  async function driveFetch(url, options = {}) {
+    const res = await fetch(url, {
+      ...options,
+      headers: { ...(options.headers || {}), Authorization: `Bearer ${accessToken}` }
+    });
+    if (!res.ok) throw new Error(`Drive API ${res.status}`);
+    return res;
+  }
+
+  async function findBackupFile() {
+    const res = await driveFetch(
+      `https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name%3D%27${BACKUP_FILENAME}%27&fields=files(id)`
+    );
+    const data = await res.json();
+    return data.files && data.files[0] ? data.files[0].id : null;
+  }
+
+  async function downloadBackupFile(fileId) {
+    const res = await driveFetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`);
+    return res.json();
+  }
+
+  async function createBackupFile(data) {
+    const boundary = 'tinytrack-boundary';
+    const metadata = { name: BACKUP_FILENAME, parents: ['appDataFolder'] };
+    const body =
+      `--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(metadata)}\r\n` +
+      `--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(data)}\r\n--${boundary}--`;
+    const res = await driveFetch(
+      'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id',
+      { method: 'POST', headers: { 'Content-Type': `multipart/related; boundary=${boundary}` }, body }
+    );
+    const json = await res.json();
+    return json.id;
+  }
+
+  async function updateBackupFile(fileId, data) {
+    await driveFetch(
+      `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`,
+      { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) }
+    );
+  }
+
+  function mergeEvents(local, remote) {
+    const byId = new Map();
+    (remote || []).forEach(ev => byId.set(ev.id, ev));
+    local.forEach(ev => byId.set(ev.id, ev)); // local wins on id conflict
+    return [...byId.values()];
+  }
+
+  async function syncFromDriveOnSignIn() {
+    driveFileId = await findBackupFile();
+    if (driveFileId) {
+      const remoteEvents = await downloadBackupFile(driveFileId);
+      events = mergeEvents(events, Array.isArray(remoteEvents) ? remoteEvents : []);
+      saveEvents();
+      if (logOpen) renderLog();
+      await updateBackupFile(driveFileId, events);
+    } else {
+      driveFileId = await createBackupFile(events);
+    }
+  }
+
+  function scheduleSync() {
+    if (!accessToken || !driveFileId) return;
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(async () => {
+      try {
+        updateAuthUI('syncing');
+        await updateBackupFile(driveFileId, events);
+        updateAuthUI('synced');
+      } catch (e) {
+        console.error(e);
+        updateAuthUI('error');
+      }
+    }, 1500);
+  }
+
+  function showToast(text) {
+    const toast = document.getElementById('toast');
+    toast.textContent = text;
+    toast.classList.add('show');
+    clearTimeout(toast._hideTimer);
+    toast._hideTimer = setTimeout(() => toast.classList.remove('show'), 1600);
+  }
+
+  function bounceButton(btn) {
+    btn.classList.remove('bounce');
+    void btn.offsetWidth;
+    btn.classList.add('bounce');
+  }
+
+  function track(type, btn, toastText) {
+    addEvent(type);
+    bounceButton(btn);
+    showToast(toastText);
+    scheduleSync();
+    selectedDay = null; // jump back to today's tab on next render
+    if (logOpen) renderLog();
+  }
+
+  document.getElementById('btnPee').addEventListener('click', (e) => {
+    track('pee', e.currentTarget, '💧 Saved! Pee logged');
+  });
+
+  document.getElementById('btnPoop').addEventListener('click', (e) => {
+    track('poop', e.currentTarget, '💩 Saved! Poop logged');
+  });
+
+  document.getElementById('btnFeed').addEventListener('click', (e) => {
+    track('feed', e.currentTarget, '🍼 Saved! Feeding logged');
+  });
+
+  document.getElementById('btnLog').addEventListener('click', () => {
+    logOpen = !logOpen;
+    document.getElementById('logPanel').hidden = !logOpen;
+    document.getElementById('logToggleLabel').textContent = logOpen ? 'Close' : 'History';
+    if (!logOpen) editingId = null;
+    if (logOpen) renderLog();
+  });
+
+  document.getElementById('btnExportCsv').addEventListener('click', exportCsv);
+  document.getElementById('btnGoogleAuth').addEventListener('click', handleAuthClick);
+
+  loadEvents();
+  window.addEventListener('load', initGoogleAuth);
+</script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Run
+
+Static single file — no install, no build, no test runner. Open `index.html` directly in a browser to run it. Google sign-in specifically requires `http(s)`, not `file://` — see `SETUP.md` for the one-time Google Cloud setup and how to serve the folder locally.
+
+## Architecture
+
+TinyTrack is one self-contained HTML file (`index.html`) with inline `<style>` and `<script>` — no framework, no dependencies, no build step.
+
+- **State**: a single in-memory `events` array, mirrored to `localStorage` (key `tinytrack_events`) on every write and hydrated from it on load. Each event is `{ id, type: 'pee' | 'poop' | 'feed', timestamp: <ISO string>, note: string, durationMin: number | null }`. `loadEvents()` back-fills `id`/`note`/`durationMin` for entries saved before those fields existed — keep that migration if the shape grows again.
+- **UI**: three large pill buttons (Pee / Poop / Feeding) log events instantly (bounce animation + toast on click). A fourth, visually distinct button toggles a log panel.
+- **Log panel**: events pass through a type filter (`selectedType`: `all`/`pee`/`poop`/`feed`) then get grouped by local calendar day (`dayKey()`). Day tabs are computed from the filtered set and rendered newest-first ("Today" / "Yesterday" / `Mon D`); picking a tab filters `logList` to that day's events, newest-first. `selectedDay` resets to `null` on every new log and on every filter change so the view jumps back to the newest day.
+- **Editing**: each log row has ✏️/🗑️ icon buttons. Edit swaps that row for an inline form (`editingId` tracks which one) with a `datetime-local` input, a note text input, and a duration-in-minutes number input; Save parses the datetime-local value back to ISO via `new Date(value).toISOString()` (relies on datetime-local strings being parsed as local time) and writes `note`/`durationMin` back onto the matching event by `id`. Delete confirms via `window.confirm` then filters the event out.
+- Note text is untrusted user input rendered via `innerHTML` — always pass it through `escapeHtml()` (see `renderLogItem`) rather than interpolating raw.
+- **CSV export**: `exportCsv()` builds `id,type,label,date,time,note,durationMin` rows (`toCsvValue()` quotes/escapes commas, quotes, newlines) and triggers a download via a Blob + temporary `<a download>`. Works from `file://`, no dependencies.
+- **Google Drive backup (optional)**: `GOOGLE_CLIENT_ID` near the top of the script is a placeholder — the app runs fully local/offline until a real client ID is set (see `SETUP.md`, which the user must complete themselves since it requires their own Google Cloud project). When configured and the user signs in via Google Identity Services (`drive.appdata` scope), `events` is synced as one hidden JSON file (`tinytrack-events.json`) in the user's Drive `appDataFolder` — not visible in their normal Drive UI. `syncFromDriveOnSignIn()` merges local and remote by `id` (local wins on conflict) on sign-in; `scheduleSync()` debounces (1.5s) a re-upload after every add/edit/delete while signed in. Signing out (`signOutGoogle()`) only revokes the token — it never touches `localStorage`, so the app is offline-first and safe to use whether or not backup is configured.
+- No routing, no components — everything is DOM lookups + event listeners in one script block.
+
+## Conventions
+
+- All UI is English/LTR (`<html lang="en" dir="ltr">`). If reintroducing localization, keep it as a toggle rather than hardcoding one language's assumptions again.
+- Visual language is intentionally cute/pastel: soft blue/mint/peach/pink gradients, fully rounded buttons, generous tap targets, emoji as primary iconography (💧 pee, 💩 poop, 🍼 feeding, 📖 log). Keep new UI consistent with this rather than introducing sharp corners or a different palette.
+- `TYPE_META` in `index.html` is the single source of truth for event emoji/label — add new trackable event types there rather than duplicating labels inline.
