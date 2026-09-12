@@ -1,0 +1,12 @@
+{
+  "name": "TinyTrack",
+  "short_name": "TinyTrack",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#fff8f6",
+  "theme_color": "#ffd6e8",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
