@@ -608,7 +608,7 @@
   }
 
   function initGoogleAuth() {
-    if (!isGoogleConfigured() || !window.google) return;
+    if (!isGoogleConfigured() || !window.google) return false;
     tokenClient = google.accounts.oauth2.initTokenClient({
       client_id: GOOGLE_CLIENT_ID,
       scope: DRIVE_SCOPE,
@@ -628,24 +628,27 @@
       }
     });
 
-    // Stay signed in across reloads: reuse a still-valid cached token, or try a
-    // silent (no-popup) renewal if it expired — falls back to the manual button either way.
+    // Stay signed in across reloads: reuse a still-valid cached token.
     const session = loadGoogleSession();
-    if (!session) return;
-    const stillValid = session.expiresAt && session.expiresAt - Date.now() > 60000;
-    if (stillValid) {
+    if (session && session.expiresAt && session.expiresAt - Date.now() > 60000) {
       accessToken = session.accessToken;
       driveFileId = session.driveFileId;
       tokenExpiresAt = session.expiresAt;
       updateAuthUI('synced');
       syncFromDriveOnSignIn().then(saveGoogleSession).catch(e => { console.error(e); updateAuthUI('error'); });
-    } else {
-      try {
-        tokenClient.requestAccessToken({ prompt: '' });
-      } catch (e) {
-        clearGoogleSession();
-      }
+    } else if (session) {
+      clearGoogleSession(); // expired — Google's token client can't silently renew without a click
+      updateAuthUI('signedout');
     }
+    return true;
+  }
+
+  // Google's script loads async — 'load' can fire before it's ready (especially in
+  // standalone/home-screen mode), which silently skipped the restore above. Poll instead.
+  function waitForGoogleAndInit(retriesLeft) {
+    if (initGoogleAuth()) return;
+    if (retriesLeft <= 0) return;
+    setTimeout(() => waitForGoogleAndInit(retriesLeft - 1), 200);
   }
 
   function handleAuthClick() {
@@ -813,7 +816,7 @@
   document.getElementById('btnGoogleAuth').addEventListener('click', handleAuthClick);
 
   loadEvents();
-  window.addEventListener('load', initGoogleAuth);
+  waitForGoogleAndInit(25); // ~5s of retrying at 200ms intervals
 </script>
 </body>
 </html>
