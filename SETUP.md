@@ -47,3 +47,23 @@ Google's sign-in system won't work when you open `index.html` directly as a file
 ## Using it
 
 Once configured, open the History panel and tap **Sign in with Google**. Your existing local entries are backed up to a private file in your own Google Drive (not visible in your regular Drive file list — it's stored in Drive's hidden app-data area). From then on, new entries sync automatically a couple seconds after you log them. Signing out never deletes anything on this device — it only stops syncing.
+
+# Siri Shortcuts (optional, iPhone)
+
+You can log entries by voice ("Hey Siri, Log Pee") using the iOS Shortcuts app. This works because the page reads a `?log=...` URL parameter on load and logs the matching entry automatically — no Google setup required for this part, just the app being reachable at a real URL (already true at `https://shirkraft-web.github.io/TinyTrack/`).
+
+**Heads up:** triggering a Shortcut briefly opens Safari to run the page — iOS has no way to run a Home Screen web app's code silently in the background without a native app. The entry still gets saved to the same storage the Home Screen app reads (same site, same origin), so it shows up correctly in History either way. It's a couple seconds on screen, not a hidden background action.
+
+## Setup
+
+For each action you want, create a Shortcut in the Shortcuts app:
+
+1. Open **Shortcuts** → tap **+** → **Add Action** → search for **Open URLs**.
+2. Enter one of these URLs:
+   - Log Pee: `https://shirkraft-web.github.io/TinyTrack/?log=pee`
+   - Log Poop: `https://shirkraft-web.github.io/TinyTrack/?log=poop`
+   - Log Diaper (pee + poop together): `https://shirkraft-web.github.io/TinyTrack/?log=both`
+   - Feeding (start/finish toggle — first run starts the timer, next run finishes it): `https://shirkraft-web.github.io/TinyTrack/?log=feed`
+3. Name the Shortcut something clear, e.g. "Log Pee" — that alone is usually enough for **"Hey Siri, Log Pee"** to work. For a custom phrase, open the Shortcut's **⋯** menu → **Add to Siri** and record one.
+
+Repeat for whichever of the four you want available by voice.

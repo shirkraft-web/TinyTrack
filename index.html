@@ -79,8 +79,77 @@
   .btn-poop { background: linear-gradient(145deg, var(--mint), var(--mint-deep)); }
   .btn-feed { background: linear-gradient(145deg, var(--peach), var(--peach-deep)); }
   .btn-diaper { background: linear-gradient(145deg, var(--lavender), var(--lavender-deep)); }
+  .btn-both { background: linear-gradient(145deg, var(--pink), var(--pink-deep)); }
   .track-btn .emoji { font-size: 2.2rem; }
   .emoji { font-size: 1.7rem; }
+
+  .diaper-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+    padding: 16px;
+  }
+  .diaper-overlay.open { display: flex; }
+  .diaper-modal {
+    width: 100%;
+    max-width: 300px;
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 22px;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.2);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    align-items: center;
+  }
+  .diaper-modal h2 {
+    margin: 0;
+    font-size: 1.1rem;
+  }
+  .diaper-options {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .diaper-options .track-btn {
+    flex-direction: row;
+    padding: 14px 12px;
+  }
+  .diaper-options .track-btn .emoji { font-size: 1.5rem; }
+
+  .feed-banner {
+    display: none;
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    width: 100%;
+    max-width: 340px;
+    margin: -4px 0 16px;
+    background: linear-gradient(145deg, var(--peach), var(--peach-deep));
+    border-radius: 16px;
+    padding: 10px 14px;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.1);
+  }
+  .feed-banner.show { display: flex; }
+  .feed-banner-time {
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+    font-size: 1.1rem;
+    margin-right: auto;
+  }
+  .feed-banner .pill-btn { flex: 0 0 auto; padding: 8px 16px; font-size: 0.85rem; }
+  .feed-finish-btn { background: var(--ink); color: #fff; }
+  .feed-cancel-btn { background: rgba(255,255,255,0.65); }
+
+  .track-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+  .track-btn:disabled:active { transform: none; }
 
   @keyframes bounce {
     0% { transform: scale(1); }
@@ -195,7 +264,6 @@
   .type-chip.active[data-type="pee"] { background: var(--blue-deep); color: white; }
   .type-chip.active[data-type="poop"] { background: var(--mint-deep); color: white; }
   .type-chip.active[data-type="feed"] { background: var(--peach-deep); color: white; }
-  .type-chip.active[data-type="diaper"] { background: var(--lavender-deep); color: white; }
   .log-list {
     max-height: 38vh;
     overflow-y: auto;
@@ -304,18 +372,37 @@
   <div class="subtitle">Simple, cute diaper &amp; feeding tracker</div>
 
   <div class="buttons">
-    <button class="track-btn btn-pee" id="btnPee">
-      <span class="emoji">💧</span> Pee
-    </button>
-    <button class="track-btn btn-poop" id="btnPoop">
-      <span class="emoji">💩</span> Poop
-    </button>
     <button class="track-btn btn-feed" id="btnFeed">
       <span class="emoji">🍼</span> Feeding
     </button>
     <button class="track-btn btn-diaper" id="btnDiaper">
       <span class="emoji">🧷</span> Diaper
     </button>
+  </div>
+
+  <div class="feed-banner" id="feedBanner">
+    <span class="feed-banner-emoji">🍼</span>
+    <span class="feed-banner-time" id="feedBannerTime">00:00</span>
+    <button class="pill-btn feed-finish-btn" id="btnFeedFinish">Finish</button>
+    <button class="pill-btn feed-cancel-btn" id="btnFeedCancel">Cancel</button>
+  </div>
+
+  <div class="diaper-overlay" id="diaperOverlay">
+    <div class="diaper-modal">
+      <h2>🧷 Diaper</h2>
+      <div class="diaper-options">
+        <button class="track-btn btn-pee" id="btnDiaperPee">
+          <span class="emoji">💧</span> Pee
+        </button>
+        <button class="track-btn btn-poop" id="btnDiaperPoop">
+          <span class="emoji">💩</span> Poop
+        </button>
+        <button class="track-btn btn-both" id="btnDiaperBoth">
+          <span class="emoji">💧💩</span> Both
+        </button>
+      </div>
+      <button class="pill-btn" id="btnDiaperCancel">Cancel</button>
+    </div>
   </div>
 
   <div class="log-panel" id="logPanel" hidden>
@@ -351,12 +438,16 @@
   const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.appdata';
   const BACKUP_FILENAME = 'tinytrack-events.json';
   const GOOGLE_SESSION_KEY = 'tinytrack_google_session';
+  const ACTIVE_FEED_KEY = 'tinytrack_active_feed';
+  const STALE_FEED_THRESHOLD_MS = 6 * 60 * 60 * 1000; // 6 hours
 
   let events = [];
   let logOpen = false;
   let selectedDay = null; // 'YYYY-MM-DD'
   let selectedType = 'all'; // 'all' | 'pee' | 'poop' | 'feed' | 'diaper'
   let editingId = null;
+  let activeFeedStart = null;  // ISO string while a feed is running, else null
+  let feedTickInterval = null;
 
   let tokenClient = null;
   let accessToken = null;
@@ -392,6 +483,28 @@
   function addEvent(type) {
     events.push({ id: genId(), type, timestamp: new Date().toISOString(), note: '', durationMin: null });
     saveEvents();
+  }
+
+  function saveActiveFeed() {
+    if (activeFeedStart) {
+      localStorage.setItem(ACTIVE_FEED_KEY, JSON.stringify({ startedAt: activeFeedStart }));
+    } else {
+      localStorage.removeItem(ACTIVE_FEED_KEY);
+    }
+  }
+
+  function loadActiveFeed() {
+    try {
+      const raw = localStorage.getItem(ACTIVE_FEED_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      const t = parsed && parsed.startedAt ? new Date(parsed.startedAt).getTime() : NaN;
+      activeFeedStart = Number.isFinite(t) ? parsed.startedAt : null;
+      if (!activeFeedStart) localStorage.removeItem(ACTIVE_FEED_KEY);
+    } catch (e) {
+      activeFeedStart = null;
+      localStorage.removeItem(ACTIVE_FEED_KEY);
+    }
   }
 
   function escapeHtml(str) {
@@ -439,7 +552,7 @@
     }
 
     const filterOptions = [{ type: 'all', emoji: '📖', label: 'All' },
-      ...Object.entries(TYPE_META).map(([type, meta]) => ({ type, ...meta }))];
+      ...Object.entries(TYPE_META).filter(([type]) => type !== 'diaper').map(([type, meta]) => ({ type, ...meta }))];
 
     typeFilters.innerHTML = filterOptions.map(opt => {
       const active = opt.type === selectedType ? 'active' : '';
@@ -779,6 +892,97 @@
     btn.classList.add('bounce');
   }
 
+  function formatElapsed(ms) {
+    const totalSec = Math.max(0, Math.floor(ms / 1000));
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }
+
+  function updateFeedDisplay() {
+    if (!activeFeedStart) return;
+    const elapsed = Date.now() - new Date(activeFeedStart).getTime();
+    document.getElementById('feedBannerTime').textContent = formatElapsed(elapsed);
+  }
+
+  function beginFeedTicking() {
+    clearInterval(feedTickInterval);
+    updateFeedDisplay();
+    feedTickInterval = setInterval(updateFeedDisplay, 1000);
+  }
+
+  function stopFeedTicking() {
+    clearInterval(feedTickInterval);
+    feedTickInterval = null;
+  }
+
+  function setFeedButtonRunning(running) {
+    const btn = document.getElementById('btnFeed');
+    btn.disabled = running;
+    btn.innerHTML = running
+      ? '<span class="emoji">⏳</span> Feeding…'
+      : '<span class="emoji">🍼</span> Feeding';
+  }
+
+  function resumeFeedUI() {
+    document.getElementById('feedBanner').classList.add('show');
+    setFeedButtonRunning(true);
+    beginFeedTicking();
+  }
+
+  function startFeedTimer() {
+    if (activeFeedStart) return;
+    activeFeedStart = new Date().toISOString();
+    saveActiveFeed();
+    resumeFeedUI();
+  }
+
+  function finishFeeding() {
+    if (!activeFeedStart) return;
+    const startIso = activeFeedStart;
+    const elapsedMs = Date.now() - new Date(startIso).getTime();
+    const minutes = Math.max(1, Math.round(elapsedMs / 60000));
+
+    events.push({ id: genId(), type: 'feed', timestamp: startIso, note: '', durationMin: minutes });
+    saveEvents();
+
+    activeFeedStart = null;
+    saveActiveFeed();
+    stopFeedTicking();
+    document.getElementById('feedBanner').classList.remove('show');
+    setFeedButtonRunning(false);
+
+    bounceButton(document.getElementById('btnFeed'));
+    showToast(`🍼 Saved! Feeding logged (${minutes}m)`);
+    scheduleSync();
+    selectedDay = null;
+    if (logOpen) renderLog();
+  }
+
+  function cancelFeeding() {
+    if (!activeFeedStart) return;
+    if (!confirm('Discard this feeding? It will not be saved.')) return;
+    activeFeedStart = null;
+    saveActiveFeed();
+    stopFeedTicking();
+    document.getElementById('feedBanner').classList.remove('show');
+    setFeedButtonRunning(false);
+  }
+
+  function handleStaleFeed(startIso) {
+    const hours = Math.round((Date.now() - new Date(startIso).getTime()) / 3600000);
+    const discard = confirm(
+      `A feeding timer has been running for about ${hours}h — looks like it was left on by accident.\n\n` +
+      `Press OK to discard it (nothing will be saved), or Cancel to keep timing it.`
+    );
+    if (discard) {
+      activeFeedStart = null;
+      saveActiveFeed();
+      return;
+    }
+    resumeFeedUI();
+  }
+
   function track(type, btn, toastText) {
     addEvent(type);
     bounceButton(btn);
@@ -788,20 +992,52 @@
     if (logOpen) renderLog();
   }
 
-  document.getElementById('btnPee').addEventListener('click', (e) => {
-    track('pee', e.currentTarget, '💧 Saved! Pee logged');
+  function trackBoth() {
+    const ts = new Date().toISOString();
+    events.push({ id: genId(), type: 'pee', timestamp: ts, note: '', durationMin: null });
+    events.push({ id: genId(), type: 'poop', timestamp: ts, note: '', durationMin: null });
+    saveEvents();
+    bounceButton(document.getElementById('btnDiaper'));
+    showToast('💧💩 Saved! Pee & Poop logged');
+    scheduleSync();
+    selectedDay = null;
+    if (logOpen) renderLog();
+  }
+
+  function openDiaperPopup() { document.getElementById('diaperOverlay').classList.add('open'); }
+  function closeDiaperPopup() { document.getElementById('diaperOverlay').classList.remove('open'); }
+
+  document.getElementById('btnFeed').addEventListener('click', () => {
+    startFeedTimer();
   });
 
-  document.getElementById('btnPoop').addEventListener('click', (e) => {
-    track('poop', e.currentTarget, '💩 Saved! Poop logged');
-  });
-
-  document.getElementById('btnFeed').addEventListener('click', (e) => {
-    track('feed', e.currentTarget, '🍼 Saved! Feeding logged');
-  });
+  document.getElementById('btnFeedFinish').addEventListener('click', finishFeeding);
+  document.getElementById('btnFeedCancel').addEventListener('click', cancelFeeding);
 
   document.getElementById('btnDiaper').addEventListener('click', (e) => {
-    track('diaper', e.currentTarget, '🧷 Saved! Diaper logged');
+    bounceButton(e.currentTarget);
+    openDiaperPopup();
+  });
+
+  document.getElementById('btnDiaperCancel').addEventListener('click', closeDiaperPopup);
+
+  document.getElementById('diaperOverlay').addEventListener('click', (e) => {
+    if (e.target.id === 'diaperOverlay') closeDiaperPopup();
+  });
+
+  document.getElementById('btnDiaperPee').addEventListener('click', () => {
+    closeDiaperPopup();
+    track('pee', document.getElementById('btnDiaper'), '💧 Saved! Pee logged');
+  });
+
+  document.getElementById('btnDiaperPoop').addEventListener('click', () => {
+    closeDiaperPopup();
+    track('poop', document.getElementById('btnDiaper'), '💩 Saved! Poop logged');
+  });
+
+  document.getElementById('btnDiaperBoth').addEventListener('click', () => {
+    closeDiaperPopup();
+    trackBoth();
   });
 
   document.getElementById('btnLog').addEventListener('click', () => {
@@ -815,7 +1051,24 @@
   document.getElementById('btnExportCsv').addEventListener('click', exportCsv);
   document.getElementById('btnGoogleAuth').addEventListener('click', handleAuthClick);
 
+  function handleUrlAction() {
+    const action = new URLSearchParams(location.search).get('log');
+    if (!action) return;
+    if (action === 'pee') track('pee', document.getElementById('btnDiaper'), '💧 Saved! Pee logged');
+    else if (action === 'poop') track('poop', document.getElementById('btnDiaper'), '💩 Saved! Poop logged');
+    else if (action === 'both') trackBoth();
+    else if (action === 'feed') { activeFeedStart ? finishFeeding() : startFeedTimer(); }
+    history.replaceState(null, '', location.pathname);
+  }
+
   loadEvents();
+  loadActiveFeed();
+  if (activeFeedStart) {
+    const elapsed = Date.now() - new Date(activeFeedStart).getTime();
+    if (elapsed > STALE_FEED_THRESHOLD_MS) handleStaleFeed(activeFeedStart);
+    else resumeFeedUI();
+  }
+  handleUrlAction();
   waitForGoogleAndInit(25); // ~5s of retrying at 200ms intervals
 </script>
 </body>
