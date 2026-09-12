@@ -67,3 +67,14 @@ For each action you want, create a Shortcut in the Shortcuts app:
 3. Name the Shortcut something clear, e.g. "Log Pee" — that alone is usually enough for **"Hey Siri, Log Pee"** to work. For a custom phrase, open the Shortcut's **⋯** menu → **Add to Siri** and record one.
 
 Repeat for whichever of the four you want available by voice.
+
+## What to say
+
+Using the Shortcut names suggested above, say:
+
+- **"Hey Siri, Log Pee"**
+- **"Hey Siri, Log Poop"**
+- **"Hey Siri, Log Diaper"** (logs both pee and poop together)
+- **"Hey Siri, Feeding"** — starts the timer; say it again later to finish and log it
+
+If you name a Shortcut something else, or record a custom phrase via **Add to Siri**, use that phrase instead — Siri triggers on whatever the Shortcut is actually named/recorded as, not the label above.
